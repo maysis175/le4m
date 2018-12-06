@@ -66,7 +66,6 @@ public final class PlotFundamentalFreq extends Application {
                     ac_buf = ac[i]; fundFreq[i] = t;
                 }
             }
-            System.out.println(fundFreq[i]);
         }
         
         /* データ系列を作成 */

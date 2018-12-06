@@ -52,8 +52,9 @@ public final class PlotFundamentalFreq extends Application {
         double[] ac = new double[shiftSum];
         double ac_buf = 0;
         for(int i = 0; i < shiftSum; i++){
+            ac_buf = 0;
             for(int t = 10; t < (int)Math.round(frameSize-1); t++){
-                ac_buf = 0; ac[i]=0;
+                ac[i]=0;
                 for(int j = 0; j < frameSize - 1; j++){
                     if(i * shiftSize + j + t >= waveform.length){
                         ac[i] += 0;
