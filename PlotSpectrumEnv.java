@@ -66,7 +66,7 @@ public final class PlotSpectrumEnv extends Application {
         final int fftSize4 = (fftSize3 >> 1) + 1;
         final double[] src2 =
                 Arrays.stream(Arrays.copyOf(specLog, fftSize3))
-                      .map(w -> w / specLog.length)
+                      .map(w -> w)
                       .toArray();
         final Complex[] cepstrum = Le4MusicUtils.rfft(src2);
         final double[] cepsAbs = Arrays.stream(cepstrum)
@@ -100,12 +100,12 @@ public final class PlotSpectrumEnv extends Application {
                     .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / fftSize, specLog[i]))
                     .collect(Collectors.toCollection(FXCollections::observableArrayList));
         final ObservableList<XYChart.Data<Number, Number>> data2 =
-                IntStream.range(0, fftSize5)
+                IntStream.range(0, fftSize6)
                     .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / fftSize5, specEnv[i]))
                     .collect(Collectors.toCollection(FXCollections::observableArrayList));
         
         /* データ系列に名前をつける */
-        //final XYChart.Series<Number, Number> series = new XYChart.Series<>("Spectrum", data);
+        final XYChart.Series<Number, Number> series = new XYChart.Series<>("Spectrum", data);
         final XYChart.Series<Number, Number> series2 = new XYChart.Series<>("Cepstrum", data2);
         
         /* 軸を作成 */
@@ -118,7 +118,7 @@ public final class PlotSpectrumEnv extends Application {
         final LineChart<Number, Number> chart = new LineChart<>(xAxis, yAxis);
         chart.setTitle("Spectrum");
         chart.setCreateSymbols(false);
-        //chart.getData().add(series);
+        chart.getData().add(series);
         chart.getData().add(series2);
         
         /* グラフ描画 */
