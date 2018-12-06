@@ -59,7 +59,12 @@ public final class PlotFundamentalFreq extends Application {
                     if(i * shiftSize + j + t >= waveform.length){
                         ac[i] += 0;
                     }else{
-                        ac[i] += waveform[i * shiftSize + j] * waveform[i * shiftSize + j + t];
+                        double sig_0 = waveform[i * shiftSize + j];
+                        double sig_1 = waveform[i * shiftSize + j + t];
+                        
+                        // 小さい音ははじく
+                        if(sig_0 < 0.15 || sig_1 < 0.15) sig_0 = 0;
+                        ac[i] += sig_0 * sig_1;
                     }
                 }
                 if(ac_buf < ac[i]){
