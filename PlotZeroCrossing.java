@@ -112,7 +112,7 @@ public final class PlotZeroCrossing extends Application {
                     zero_crossing[i]++;
                 }
             }
-            if(zero_crossing[i] / frameDuration > 2 * fundFreq[i]){
+            if(zero_crossing[i] / frameDuration > 3 * fundFreq[i]){
                 fundFreq[i] = 0;
             }
         }

@@ -123,15 +123,8 @@ public final class LearnSpeechRecog extends Application {
         final double[] specEnv = Le4MusicUtils.irfft(src3);
         
         /* 対数尤度を最大化するパラメータを求める */
-        double[][] mu = new double[5][(int)Math.round(sampleRate * 2)];
-        double[][] sigma2 = new double[5][(int)Math.round(sampleRate * 2)];
-        
-        for(int i = 0; i < 5; i++){
-            for(int j = 0; j < wave_vowel[i].length; j++){
-                mu[i][j] = wave_vowel[i][j];
-                sigma2[i][j] = Math.pow((wave_vowel[i][j] - mu[i][j]), 2);
-            }
-        }
+        // D: ケプストラムの次元数 = 13
+        // N: 逆フーリエ変換のフレーム数 = 
 
         /* データ系列を作成 */
         final ObservableList<XYChart.Data<Number, Number>> data =
@@ -167,10 +160,9 @@ public final class LearnSpeechRecog extends Application {
         primaryStage.setScene(scene);
         primaryStage.setTitle(getClass().getName());
         primaryStage.show();
-        
-                
+
         /* 学習したパラメータの保存 */
-        try {
+        /*try {
             FileWriter file = new FileWriter("param.txt");
             PrintWriter pw = new PrintWriter(new BufferedWriter(file));
             
@@ -184,6 +176,6 @@ public final class LearnSpeechRecog extends Application {
             pw.close();
         }catch(IOException e){
             e.printStackTrace();
-        }
+        }*/
     }
 }
