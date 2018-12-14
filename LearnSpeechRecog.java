@@ -170,20 +170,18 @@ public final class LearnSpeechRecog extends Application {
         
                 
         /* 学習したパラメータの保存 */
-            try (PrintWriter pw = new PrintWriter("param.txt")) {
-                for(int i = 0; i < 5; i ++){
-                    for(int j = 0; j < wave_vowel[i].length; j++){
-                        pw.printf("%lf,", mu[i][j]);
-                    }
-                    pw.println();
+        try {
+            FileWriter file = new FileWriter("param.txt");
+            PrintWriter pw = new PrintWriter(new BufferedWriter(file));
+            
+            for(int i = 0; i < 5; i++){
+                for(int j = 0; j < wave_vowel[i].length; j++){
+                    pw.printf("%e, ", wave_vowel[i][j]);
                 }
-                pw.println();
-                for(int i = 0; i < 5; i ++){
-                    for(int j = 0; j < wave_vowel[i].length; j++){
-                        pw.format("%lf,", sigma2[i][j]);
-                    }
-                    pw.println();
-                }
+                pw.println("");
+            }
+            
+            pw.close();
         }catch(IOException e){
             e.printStackTrace();
         }

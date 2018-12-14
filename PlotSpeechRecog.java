@@ -107,4 +107,5 @@ public final class PlotSpeechRecog extends Application {
         primaryStage.setScene(scene);
         primaryStage.setTitle(getClass().getName());
         primaryStage.show();
+    }
 }
