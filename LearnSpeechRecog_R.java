@@ -33,8 +33,12 @@ public final class LearnSpeechRecog_R extends Application {
                UnsupportedAudioFileException {
         /* コマンドライン引数処理 */
         final String[] args = getParameters().getRaw().toArray(new String[0]);
-        if(args.length < 2){
+        if(args.length < 1){
             System.out.println("WAVFILE is not given.");
+            Platform.exit();
+            return;
+        }else if(args.length < 2){
+            System.out.println("Two WAVFILEs need given.");
             Platform.exit();
             return;
         }
