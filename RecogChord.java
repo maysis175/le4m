@@ -71,7 +71,7 @@ public final class RecogChord extends Application {
         /* 複素スペクトログラムを対数振幅スペクトログラムに */
         final double[][] specLog =
                 spectrogram.map(sp -> Arrays.stream(sp)
-                                            .mapToDouble(c -> 20.0 * Math.log10(c.abs()))
+                                            .mapToDouble(c -> c.abs())
                                             .toArray())
                            .toArray(n -> new double[n][]);
         
@@ -80,26 +80,13 @@ public final class RecogChord extends Application {
         for(int i = 0; i < specLog.length; i++){
             for(int j = 0; j < 17; j++){
                 if(j < 12){
-                    chromaVec[i][j] = 0.084 * chromaPower(specLog[i], j, sampleRate * 0.5, fftSize2);
+                    chromaVec[i][j] = -0.15 / chromaPower(specLog[i], j, sampleRate * 0.5, fftSize2);
                     if(chromaVec[i][j] == 0) chromaVec[i][j] = Integer.MIN_VALUE;
                 }else{
                     chromaVec[i][j] = 0;
                 }
             }
         }
-        
-        
-        System.out.println(Arrays.toString(chromaVec[40]));
-        
-        /*for(int i = 0; i < 12; i++){
-            System.out.println(chromaVec[30][i]);
-        }
-        
-        for(int i = 0; i < specLog[30].length; i++){
-            System.out.println(specLog[30][i]);
-        }
-        
-        System.out.println(Arrays.toString(chromaVec[30]));*/
         
         // 和音らしさ
         // like_chord[i][j] : フレーム i の和音 j らしさ
@@ -114,9 +101,9 @@ public final class RecogChord extends Application {
                                      + a_3rd  * chromaVec[i][(j + 4) % 12]
                                      + a_5th  * chromaVec[i][(j + 7) % 12];
                 }else if(j < 24){
-                    like_chord[i][j] = a_root * chromaVec[i][j - 12]
-                                     + a_3rd  * chromaVec[i][((j - 12) + 3) % 12]
-                                     + a_5th  * chromaVec[i][((j - 12) + 7) % 12];
+                    like_chord[i][j] = a_root * chromaVec[i][j % 12]
+                                     + a_3rd  * chromaVec[i][(j + 3) % 12]
+                                     + a_5th  * chromaVec[i][(j + 7) % 12];
                 }
             }
         }
@@ -126,6 +113,13 @@ public final class RecogChord extends Application {
         for(int i = 0; i < like_graph.length; i++){
             like_graph[i] = argmax(like_chord[i]);
         }
+        
+        for(int i = 240; i <= 245; i++){
+            System.out.println(Arrays.toString(chromaVec[i]));
+            System.out.println(Arrays.toString(like_chord[i]));
+        }
+        System.out.println(like_graph[242]);
+        
         
         //////////////////////////////////////////////////
         // クロマグラム出すときはこっち
@@ -168,7 +162,7 @@ public final class RecogChord extends Application {
         // データ系列を作成 
         final ObservableList<XYChart.Data<Number, Number>> data =
                 IntStream.range(0, like_graph.length)
-                    .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / fftSize, like_graph[i]))
+                    .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / waveform.length / 5, like_graph[i]))
                     .collect(Collectors.toCollection(FXCollections::observableArrayList));
         
         // データ系列に名前をつける 
@@ -211,10 +205,9 @@ public final class RecogChord extends Application {
     }
     
     public double argmax(double[] arr){
-        double max = Integer.MIN_VALUE;
+        double max = arr[0];
         double argmax = 0;
         for(int i = 0; i < arr.length-1; i++){
-            max = arr[i];
             if(max < arr[i+1]){
                 max = arr[i+1];
                 argmax = i + 1;
@@ -226,7 +219,7 @@ public final class RecogChord extends Application {
     // 各音名のパワーを求める
     // toneName は 0 〜 12 で C, C#, ... B に対応
     public double chromaPower(double[] spec, int toneName, double nyquist, int fftSize){
-        double halfhalftone = Math.pow(2.0, 1/12);
+        double halfhalftone = Math.pow(2.0, 1.0/30.0);
         double powerSum = 0;
         /*double[] toneFreq = {261.63, 277.18, 293.66, 311.13, 329.63, 349.23,
                              369.99, 392.00, 415.30, 440.00, 466.16, 493.88};*/
@@ -236,17 +229,18 @@ public final class RecogChord extends Application {
         }
         
         double[] baseFreq = new double[5];
-        double[] halfFreq = new double[5];
+        int div = 1;
         for(int i = 0; i <= 4; i++){
-            baseFreq[i] = toneFreq[toneName] * Math.pow(2, i-2);
+            baseFreq[i] = toneFreq[toneName] * Math.pow(2.0, (double)(i-2));
             for(int j = 0; j < spec.length; j++){
                 double frameFreq = spec[j];
-                if(freq(nyquist, fftSize, j) >= baseFreq[i] - 5
-                        && freq(nyquist, fftSize, j) <= baseFreq[i] + 5){
+                if(freq(nyquist, fftSize, j) >= baseFreq[i] / halfhalftone
+                        && freq(nyquist, fftSize, j) <= baseFreq[i] * halfhalftone){
                     powerSum += frameFreq;
+                    div++;
                 }
             }
         }
-        return powerSum;
+        return powerSum / div;
     }
 }
