@@ -80,7 +80,7 @@ public final class RecogChord extends Application {
         for(int i = 0; i < specLog.length; i++){
             for(int j = 0; j < 17; j++){
                 if(j < 12){
-                    chromaVec[i][j] = 0.001 * chromaPower(specLog[i], j, sampleRate * 0.5, fftSize2);
+                    chromaVec[i][j] = 0.084 * chromaPower(specLog[i], j, sampleRate * 0.5, fftSize2);
                     if(chromaVec[i][j] == 0) chromaVec[i][j] = Integer.MIN_VALUE;
                 }else{
                     chromaVec[i][j] = 0;
@@ -88,39 +88,62 @@ public final class RecogChord extends Application {
             }
         }
         
-        /*for(int i = 0; i < specLog.length; i++){
-            for(int j = 0; j < 17; j++){
-                if(j == 0 && freq(sampleRate * 0.5, fftSize2, i) >= 203 &&
-                    freq(sampleRate * 0.5, fftSize2, i) <= 215){
-                    chromaVec[i][j] = -10;
-                }else{
-                    chromaVec[i][j] = Integer.MIN_VALUE;
-                }
-            }
-        }*/
         
-        for(int i = 0; i < 12; i++){
-            System.out.println(chromaVec[20][i]);
+        System.out.println(Arrays.toString(chromaVec[40]));
+        
+        /*for(int i = 0; i < 12; i++){
+            System.out.println(chromaVec[30][i]);
         }
         
-        System.out.println(Arrays.toString(chromaVec[100]));
+        for(int i = 0; i < specLog[30].length; i++){
+            System.out.println(specLog[30][i]);
+        }
         
-        System.out.println(specLog.length);
-        System.out.println(specLog[100].length);
+        System.out.println(Arrays.toString(chromaVec[30]));*/
         
-        /* X軸を作成 */
-        final NumberAxis xAxis = new NumberAxis();
+        // 和音らしさ
+        // like_chord[i][j] : フレーム i の和音 j らしさ
+        // 0 <= j <= 11 : C, C#, ... , B Maj
+        // 12 <= j <= 23 : C, C#, ... , B Min
+        double[][] like_chord = new double[chromaVec.length][(12 * 2)];
+        double a_root = 1.0, a_3rd = 0.5, a_5th = 0.8;
+        for(int i = 0; i < chromaVec.length; i++){
+            for(int j = 0; j < 12 * 2; j++){
+                if(j < 12){
+                    like_chord[i][j] = a_root * chromaVec[i][j]
+                                     + a_3rd  * chromaVec[i][(j + 4) % 12]
+                                     + a_5th  * chromaVec[i][(j + 7) % 12];
+                }else if(j < 24){
+                    like_chord[i][j] = a_root * chromaVec[i][j - 12]
+                                     + a_3rd  * chromaVec[i][((j - 12) + 3) % 12]
+                                     + a_5th  * chromaVec[i][((j - 12) + 7) % 12];
+                }
+            }
+        }
+        
+        // 和音らしさをグラフ化
+        double[] like_graph = new double[like_chord.length];
+        for(int i = 0; i < like_graph.length; i++){
+            like_graph[i] = argmax(like_chord[i]);
+        }
+        
+        //////////////////////////////////////////////////
+        // クロマグラム出すときはこっち
+        //////////////////////////////////////////////////
+        
+        // X軸を作成 
+        /*final NumberAxis xAxis = new NumberAxis();
         xAxis.setLabel("Time (seconds)");
         xAxis.setLowerBound(0.0);
         xAxis.setUpperBound(specLog.length * shiftDuration);
         
-        /* Y軸を作成 */
+        // Y軸を作成 
         final NumberAxis yAxis = new NumberAxis();
-        yAxis.setLabel("Frequency (Hz)");
+        yAxis.setLabel("Chroma Vector");
         yAxis.setLowerBound(0.0);
-        yAxis.setUpperBound(12);
+        yAxis.setUpperBound(16);
         
-        /* chチャートを作成 */
+        // chチャートを作成 
         final LineChartWithSpectrogram<Number, Number> chart =
                 new LineChartWithSpectrogram<>(xAxis, yAxis);
         chart.setParameters(chromaVec.length, 17, 12);
@@ -129,13 +152,57 @@ public final class RecogChord extends Application {
         chart.setCreateSymbols(false);
         chart.setLegendVisible(false);
         
-        /* グラフ描画 */
+        // グラフ描画 
         final Scene scene = new Scene(chart, 800, 600);
         
-        /* ウィンドウ表示 */
+        // ウィンドウ表示 
+        primaryStage.setScene(scene);
+        primaryStage.setTitle(getClass().getName());
+        primaryStage.show();*/
+        
+        
+        //////////////////////////////////////////////////
+        // コード進行出すときはこっち
+        //////////////////////////////////////////////////
+        
+        // データ系列を作成 
+        final ObservableList<XYChart.Data<Number, Number>> data =
+                IntStream.range(0, like_graph.length)
+                    .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / fftSize, like_graph[i]))
+                    .collect(Collectors.toCollection(FXCollections::observableArrayList));
+        
+        // データ系列に名前をつける 
+        final XYChart.Series<Number, Number> series = new XYChart.Series<>("Spectrum", data);
+        
+        // 軸を作成 
+        final NumberAxis xAxis = new NumberAxis();
+        xAxis.setLabel("Time (sec)");
+        final NumberAxis yAxis = new NumberAxis();
+        yAxis.setLabel("Chord");
+        
+        // チャートを作成 
+        final LineChart<Number, Number> chart = new LineChart<>(xAxis, yAxis);
+        chart.setTitle("Spectrum");
+        chart.setCreateSymbols(false);
+        chart.getData().add(series);
+        
+        // グラフ描画 
+        final Scene scene = new Scene(chart, 800, 600);
+        
+        // ウィンドウ表示 
         primaryStage.setScene(scene);
         primaryStage.setTitle(getClass().getName());
         primaryStage.show();
+    }
+    
+    // ノートナンバーから周波数への変換
+    public double n_to_f(double noteNum){
+        return (440 * Math.pow(2, ((noteNum-69)/12)));
+    }
+    
+    // 周波数からノートナンバーへの変換
+    public int f_to_n(double freq){
+        return (int)Math.round(12 * Math.log(freq / 440) / Math.log(2) + 69);
     }
     
     // 0 〜 2048 の arrnum から対応する周波数を求める
@@ -143,21 +210,39 @@ public final class RecogChord extends Application {
         return nyquist / fftSize * arrnum;
     }
     
+    public double argmax(double[] arr){
+        double max = Integer.MIN_VALUE;
+        double argmax = 0;
+        for(int i = 0; i < arr.length-1; i++){
+            max = arr[i];
+            if(max < arr[i+1]){
+                max = arr[i+1];
+                argmax = i + 1;
+            }
+        }
+        return argmax;
+    }
+    
     // 各音名のパワーを求める
     // toneName は 0 〜 12 で C, C#, ... B に対応
     public double chromaPower(double[] spec, int toneName, double nyquist, int fftSize){
-        double halftone = Math.pow(2, 1/12);
+        double halfhalftone = Math.pow(2.0, 1/12);
         double powerSum = 0;
-        double[] toneFreq = {261.63, 277.18, 293.66, 311.13, 329.63, 349.23,
-                             369.99, 392.00, 415.30, 440.00, 466.16, 493.88};
+        /*double[] toneFreq = {261.63, 277.18, 293.66, 311.13, 329.63, 349.23,
+                             369.99, 392.00, 415.30, 440.00, 466.16, 493.88};*/
+        double[] toneFreq = new double[12];
+        for(int i = 0; i < 12 ; i++){
+            toneFreq[i] = n_to_f(60+i);
+        }
         
         double[] baseFreq = new double[5];
+        double[] halfFreq = new double[5];
         for(int i = 0; i <= 4; i++){
             baseFreq[i] = toneFreq[toneName] * Math.pow(2, i-2);
             for(int j = 0; j < spec.length; j++){
                 double frameFreq = spec[j];
-                if(freq(nyquist, fftSize, j) >= baseFreq[i] - baseFreq[i] * halftone / 2
-                        && freq(nyquist, fftSize, j) <= baseFreq[i] + baseFreq[i] * halftone / 2){
+                if(freq(nyquist, fftSize, j) >= baseFreq[i] - 5
+                        && freq(nyquist, fftSize, j) <= baseFreq[i] + 5){
                     powerSum += frameFreq;
                 }
             }
