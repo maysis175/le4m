@@ -114,11 +114,11 @@ public final class RecogChord extends Application {
             like_graph[i] = argmax(like_chord[i]);
         }
         
-        for(int i = 240; i <= 245; i++){
+        /*for(int i = 240; i <= 245; i++){
             System.out.println(Arrays.toString(chromaVec[i]));
             System.out.println(Arrays.toString(like_chord[i]));
         }
-        System.out.println(like_graph[242]);
+        System.out.println(like_graph[242]);*/
         
         
         //////////////////////////////////////////////////
