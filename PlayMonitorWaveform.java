@@ -145,7 +145,7 @@ public final class PlayMonitorWaveform extends Application {
 
     /* 描画ウインドウ作成 */
     final Scene scene  = new Scene(chart, 800, 600);
-    scene.getStylesheets().add("src/le4music.css");
+    scene.getStylesheets().add("le4music.css");
     primaryStage.setScene(scene);
     primaryStage.setTitle(getClass().getName());
     primaryStage.show();

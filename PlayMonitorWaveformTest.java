@@ -1,8 +1,8 @@
 import java.lang.invoke.MethodHandles;
 import java.io.File;
-import java.util.Arrays;
 import java.util.Optional;
 import java.util.stream.IntStream;
+import java.util.stream.Collectors;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import javax.sound.sampled.AudioSystem;
@@ -28,15 +28,17 @@ import org.apache.commons.math3.util.MathArrays;
 
 import jp.ac.kyoto_u.kuis.le4music.Le4MusicUtils;
 import jp.ac.kyoto_u.kuis.le4music.Player;
+import jp.ac.kyoto_u.kuis.le4music.Recorder;
 import jp.ac.kyoto_u.kuis.le4music.LineChartWithSpectrogram;
 import static jp.ac.kyoto_u.kuis.le4music.Le4MusicUtils.verbose;
 
 import java.io.IOException;
+import java.util.Arrays;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.sound.sampled.LineUnavailableException;
 import org.apache.commons.cli.ParseException;
 
-public final class PlayMonitorSpectrogram extends Application {
+public final class PlayMonitorWaveformTest extends Application {
 
   private static final Options options = new Options();
   private static final String helpMessage =
@@ -44,10 +46,11 @@ public final class PlayMonitorSpectrogram extends Application {
 
   static {
     /* コマンドラインオプション定義 */
-    options.addOption("h", "help", false, "display this help and exit");
+    options.addOption("h", "help", false, "Display this help and exit");
     options.addOption("v", "verbose", false, "Verbose output");
     options.addOption("m", "mixer", true,
-                      "Index of the Mixer object that supplies a SourceDataLine object. " +
+                      "Index of the Mixer object that " +
+                      "supplies a SourceDataLine object. " +
                       "To check the proper index, use CheckAudioSystem");
     options.addOption("l", "loop", false, "Loop playback");
     options.addOption("f", "frame", true,
@@ -58,18 +61,9 @@ public final class PlayMonitorSpectrogram extends Application {
                       "(Default: " + Le4MusicUtils.frameInterval + ")");
     options.addOption("b", "buffer", true,
                       "Duration of line buffer [seconds]");
-    options.addOption("d", "duration", true,
-                      "Duration of spectrogram [seconds]");
-    options.addOption(null, "amp-lo", true,
-                      "Lower bound of amplitude [dB] (Default: " +
-                      Le4MusicUtils.spectrumAmplitudeLowerBound + ")");
-    options.addOption(null, "amp-up", true,
-                      "Upper bound of amplitude [dB] (Default: " +
-                      Le4MusicUtils.spectrumAmplitudeUpperBound + ")");
-    options.addOption(null, "freq-lo", true,
-                      "Lower bound of frequency [Hz] (Default: 0.0)");
-    options.addOption(null, "freq-up", true,
-                      "Upper bound of frequency [Hz] (Default: Nyquist)");
+    options.addOption("a", "amp-bounds", true,
+                      "Upper(+) and lower(-) bounds in the amplitude direction " +
+                      "(Default: " + Le4MusicUtils.waveformAmplitudeBounds + ")");
   }
 
   @Override /* Application */
@@ -87,7 +81,6 @@ public final class PlayMonitorSpectrogram extends Application {
       return;
     }
     verbose = cmd.hasOption("verbose");
-
     final String[] pargs = cmd.getArgs();
     if (pargs.length < 1) {
       System.out.println("WAVFILE is not given.");
@@ -97,6 +90,11 @@ public final class PlayMonitorSpectrogram extends Application {
     }
     final File wavFile = new File(pargs[0]);
 
+    final double frameDuration =
+      Optional.ofNullable(cmd.getOptionValue("frame"))
+        .map(Double::parseDouble)
+        .orElse(Le4MusicUtils.frameDuration);
+    
     final double duration =
       Optional.ofNullable(cmd.getOptionValue("duration"))
         .map(Double::parseDouble)
@@ -105,6 +103,9 @@ public final class PlayMonitorSpectrogram extends Application {
       Optional.ofNullable(cmd.getOptionValue("interval"))
         .map(Double::parseDouble)
         .orElse(Le4MusicUtils.frameInterval);
+    
+    // ステージの追加
+    Stage secondaryStage = new Stage();
 
     /* Player を作成 */
     final Player.Builder builder = Player.builder(wavFile);
@@ -117,13 +118,15 @@ public final class PlayMonitorSpectrogram extends Application {
     Optional.ofNullable(cmd.getOptionValue("buffer"))
       .map(Double::parseDouble)
       .ifPresent(builder::bufferDuration);
-    Optional.ofNullable(cmd.getOptionValue("frame"))
+    builder.frameDuration(frameDuration);
+    Optional.ofNullable(cmd.getOptionValue("interval"))
       .map(Double::parseDouble)
-      .ifPresent(builder::frameDuration);
-    builder.interval(interval);
+      .ifPresent(builder::interval);
     builder.daemon();
     final Player player = builder.build();
-
+    
+    ////////////////////////////////////////////////////////////////////////////
+    
     /* データ処理スレッド */
     final ExecutorService executor = Executors.newSingleThreadExecutor();
 
@@ -186,14 +189,69 @@ public final class PlayMonitorSpectrogram extends Application {
 
     /* グラフ描画 */
     final Scene scene = new Scene(chart_sgram, 800, 600);
-    scene.getStylesheets().add("src/le4music.css");
+    scene.getStylesheets().add("le4music.css");
     primaryStage.setScene(scene);
     primaryStage.setTitle(getClass().getName());
     /* ウインドウを閉じたときに他スレッドも停止させる */
     primaryStage.setOnCloseRequest(req -> executor.shutdown());
     primaryStage.show();
     Platform.setImplicitExit(true);
+    
+    ////////////////////////////////////////////////////////////////////////////
 
+    /* データ系列を作成 */
+    final ObservableList<XYChart.Data<Number, Number>> data =
+      IntStream.range(0, player.getFrameSize())
+        .mapToObj(i -> new XYChart.Data<Number, Number>(i / player.getSampleRate(), 0.0))
+        .collect(Collectors.toCollection(FXCollections::observableArrayList));
+
+    /* データ系列に名前をつける */
+    final XYChart.Series<Number, Number> series =
+      new XYChart.Series<>("Waveform", data);
+
+    /* 軸を作成 */
+    final NumberAxis xAxis2 = new NumberAxis(
+      /* axisLabel  = */ "Time (seconds)",
+      /* lowerBound = */ -frameDuration,
+      /* upperBound = */ 0.0,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(frameDuration)
+    );
+    final double ampBounds =
+      Optional.ofNullable(cmd.getOptionValue("amp-bounds"))
+        .map(Double::parseDouble)
+        .orElse(Le4MusicUtils.waveformAmplitudeBounds);
+    final NumberAxis yAxis2 = new NumberAxis(
+      /* axisLabel  = */ "Amplitude",
+      /* lowerBound = */ -ampBounds,
+      /* upperBound = */ +ampBounds,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(ampBounds * 2.0)
+    );
+
+    /* チャートを作成 */
+    final LineChart<Number, Number> chart = new LineChart<>(xAxis, yAxis);
+    chart.setTitle("Waveform");
+    chart.setCreateSymbols(false);
+    chart.setLegendVisible(false);
+    chart.setAnimated(false);
+    chart.getData().add(series);
+
+    /* 描画ウインドウ作成 */
+    final Scene scene2  = new Scene(chart, 800, 600);
+    scene.getStylesheets().add("le4music.css");
+    secondaryStage.setScene(scene);
+    secondaryStage.setTitle(getClass().getName());
+    secondaryStage.show();
+
+    player.addAudioFrameListener((frame, position) -> Platform.runLater(() -> {
+      /* 最新フレームの波形を描画 */
+      IntStream.range(0, player.getFrameSize()).forEach(i -> {
+        data.get(i).setXValue((i + position) / player.getSampleRate());
+        data.get(i).setYValue(frame[i]);
+      });
+      xAxis.setLowerBound(position / player.getSampleRate());
+      xAxis.setUpperBound((position + player.getFrameSize()) / player.getSampleRate());
+    }));
+    
     player.addAudioFrameListener((frame, position) -> executor.execute(() -> {
       final double[] wframe = MathArrays.ebeMultiply(frame, window);
       final Complex[] spectrum = Le4MusicUtils.rfft(Arrays.copyOf(wframe, fftSize));
@@ -203,11 +261,10 @@ public final class PlayMonitorSpectrogram extends Application {
       chart_sgram.addSpectrum(spectrum);
 
       /* 軸を更新 */
-      xAxis.setUpperBound(posInSec);
-      xAxis.setLowerBound(posInSec - duration);
+      xAxis2.setUpperBound(posInSec);
+      xAxis2.setLowerBound(posInSec - duration);
     }));
 
-    /* 録音開始 */
     Platform.runLater(player::start);
   }
 

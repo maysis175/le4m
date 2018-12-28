@@ -28,15 +28,18 @@ import org.apache.commons.math3.util.MathArrays;
 
 import jp.ac.kyoto_u.kuis.le4music.Le4MusicUtils;
 import jp.ac.kyoto_u.kuis.le4music.Player;
+import jp.ac.kyoto_u.kuis.le4music.Recorder;
 import jp.ac.kyoto_u.kuis.le4music.LineChartWithSpectrogram;
 import static jp.ac.kyoto_u.kuis.le4music.Le4MusicUtils.verbose;
 
 import java.io.IOException;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.sound.sampled.LineUnavailableException;
 import org.apache.commons.cli.ParseException;
 
-public final class PlayMonitorSpectrogram extends Application {
+public final class RecordMonitorSpectrogramTest extends Application {
 
   private static final Options options = new Options();
   private static final String helpMessage =
@@ -97,6 +100,11 @@ public final class PlayMonitorSpectrogram extends Application {
     }
     final File wavFile = new File(pargs[0]);
 
+    final double frameDuration =
+      Optional.ofNullable(cmd.getOptionValue("frame"))
+        .map(Double::parseDouble)
+        .orElse(Le4MusicUtils.frameDuration);
+    
     final double duration =
       Optional.ofNullable(cmd.getOptionValue("duration"))
         .map(Double::parseDouble)
@@ -105,6 +113,10 @@ public final class PlayMonitorSpectrogram extends Application {
       Optional.ofNullable(cmd.getOptionValue("interval"))
         .map(Double::parseDouble)
         .orElse(Le4MusicUtils.frameInterval);
+    
+    // ステージを追加
+    Stage secondaryStage = new Stage();
+    Stage micInputStage = new Stage();
 
     /* Player を作成 */
     final Player.Builder builder = Player.builder(wavFile);
@@ -123,6 +135,24 @@ public final class PlayMonitorSpectrogram extends Application {
     builder.interval(interval);
     builder.daemon();
     final Player player = builder.build();
+    
+    // Recorder を作成
+    int mixerIndex = 0;
+    final Recorder.Builder builder2 = Recorder.builder();
+    Optional.ofNullable(cmd.getOptionValue("mixer"))
+      .map(Integer::parseInt)
+      .map(index -> AudioSystem.getMixerInfo()[index])
+      .ifPresent(builder2::mixer);
+    Optional.ofNullable(cmd.getOptionValue("frame"))
+      .map(Double::parseDouble)
+      .ifPresent(builder2::frameDuration);
+    builder2.interval(interval);
+    builder2.daemon();
+    final Recorder recorder = builder2.build();
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // スペクトログラム作成
+    ////////////////////////////////////////////////////////////////////////////
 
     /* データ処理スレッド */
     final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -186,14 +216,137 @@ public final class PlayMonitorSpectrogram extends Application {
 
     /* グラフ描画 */
     final Scene scene = new Scene(chart_sgram, 800, 600);
-    scene.getStylesheets().add("src/le4music.css");
+    scene.getStylesheets().add("le4music.css");
     primaryStage.setScene(scene);
     primaryStage.setTitle(getClass().getName());
     /* ウインドウを閉じたときに他スレッドも停止させる */
     primaryStage.setOnCloseRequest(req -> executor.shutdown());
     primaryStage.show();
     Platform.setImplicitExit(true);
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // 入力音響信号から Waveform 作成
+    ////////////////////////////////////////////////////////////////////////////
 
+    /* データ系列を作成 */
+    final ObservableList<XYChart.Data<Number, Number>> data =
+      IntStream.range(0, player.getFrameSize())
+        .mapToObj(i -> new XYChart.Data<Number, Number>(i / player.getSampleRate(), 0.0))
+        .collect(Collectors.toCollection(FXCollections::observableArrayList));
+
+    /* データ系列に名前をつける */
+    final XYChart.Series<Number, Number> series =
+      new XYChart.Series<>("Waveform", data);
+
+    /* 軸を作成 */
+    final NumberAxis xAxis2 = new NumberAxis(
+      /* axisLabel  = */ "Time (seconds)",
+      /* lowerBound = */ -frameDuration,
+      /* upperBound = */ 0.0,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(frameDuration)
+    );
+    final double ampBounds =
+      Optional.ofNullable(cmd.getOptionValue("amp-bounds"))
+        .map(Double::parseDouble)
+        .orElse(Le4MusicUtils.waveformAmplitudeBounds);
+    final NumberAxis yAxis2 = new NumberAxis(
+      /* axisLabel  = */ "Amplitude",
+      /* lowerBound = */ -ampBounds,
+      /* upperBound = */ +ampBounds,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(ampBounds * 2.0)
+    );
+
+    /* チャートを作成 */
+    final LineChart<Number, Number> chart = new LineChart<>(xAxis2, yAxis2);
+    chart.setTitle("Waveform");
+    chart.setCreateSymbols(false);
+    chart.setLegendVisible(false);
+    chart.setAnimated(false);
+    chart.getData().add(series);
+
+    /* 描画ウインドウ作成 */
+    final Scene scene2  = new Scene(chart, 800, 600);
+    scene2.getStylesheets().add("le4music.css");
+    secondaryStage.setScene(scene2);
+    secondaryStage.setTitle(getClass().getName());
+    secondaryStage.setOnCloseRequest(req -> executor.shutdown());
+    secondaryStage.show();
+    
+    ////////////////////////////////////////////////////////////////////////////
+    // マイク入力から Waveform 作成
+    ////////////////////////////////////////////////////////////////////////////
+    
+    final ExecutorService executor2 = Executors.newSingleThreadExecutor();
+    
+    /* 窓関数とFFTのサンプル数 */
+    final int fftSize_mic = 1 << Le4MusicUtils.nextPow2(recorder.getFrameSize());
+    final int fftSize_mic2 = (fftSize_mic >> 1) + 1;
+
+    /* 窓関数を求め，それを正規化する */
+    final double[] window_mic =
+      MathArrays.normalizeArray(Le4MusicUtils.hanning(recorder.getFrameSize()), 1.0);
+
+    /* 各フーリエ変換係数に対応する周波数 */
+    final double[] freqs_mic =
+      IntStream.range(0, fftSize_mic2)
+               .mapToDouble(i -> i * recorder.getSampleRate() / fftSize_mic)
+               .toArray();
+
+    /* フレーム数 */
+    final int frames_mic = (int)Math.round(duration / interval);
+    
+    // データ系列を作成
+    final ObservableList<XYChart.Data<Number, Number>> data_mic =
+      IntStream.range(0, recorder.getFrameSize())
+        .mapToObj(i -> new XYChart.Data<Number, Number>(i / recorder.getSampleRate(), 0.0))
+        .collect(Collectors.toCollection(FXCollections::observableArrayList));
+    
+    // データ系列に名前をつける
+    final XYChart.Series<Number, Number> series_mic =
+      new XYChart.Series<>("Waveform from mic", data_mic);
+    
+    // 軸を作成
+    final NumberAxis xAxis_mic = new NumberAxis(
+      /* axisLabel  = */ "Time (seconds)",
+      /* lowerBound = */ -duration,
+      /* upperBound = */ 0.0,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(duration)
+    );
+    final NumberAxis yAxis_mic = new NumberAxis(
+      /* axisLabel  = */ "Fundamental Frequency (Hz)",
+      /* lowerBound = */ freqLowerBound,
+      /* upperBound = */ freqUpperBound,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(freqUpperBound - freqLowerBound)
+    );
+
+    // チャートを作成 
+    final LineChart<Number, Number> chart_mic = new LineChart<>(xAxis_mic, yAxis_mic);
+    chart_mic.setTitle("Fundamental Frequency from mic");
+    chart_mic.setCreateSymbols(false);
+    chart_mic.setLegendVisible(false);
+    chart_mic.setAnimated(false);
+    chart_mic.getData().add(series_mic);
+    
+    // 描画ウィンドウ作成
+    final Scene scene_mic = new Scene(chart_mic, 800, 600);
+    scene_mic.getStylesheets().add("le4music.css");
+    micInputStage.setScene(scene_mic);
+    micInputStage.setTitle(getClass().getName());
+    micInputStage.setOnCloseRequest(req -> executor2.shutdown());
+    micInputStage.show();
+    
+    ////////////////////////////////////////////////////////////////////////////
+    ////////////////////////////////////////////////////////////////////////////
+    
+    // ウィンドウ位置調整
+    primaryStage.setX(100);
+    primaryStage.setY(100);
+    secondaryStage.setX(1000);
+    secondaryStage.setY(100);
+    micInputStage.setX(100);
+    micInputStage.setY(1000);
+
+    // オンライン処理
     player.addAudioFrameListener((frame, position) -> executor.execute(() -> {
       final double[] wframe = MathArrays.ebeMultiply(frame, window);
       final Complex[] spectrum = Le4MusicUtils.rfft(Arrays.copyOf(wframe, fftSize));
@@ -205,10 +358,55 @@ public final class PlayMonitorSpectrogram extends Application {
       /* 軸を更新 */
       xAxis.setUpperBound(posInSec);
       xAxis.setLowerBound(posInSec - duration);
+      
+      // waveform データ更新
+      IntStream.range(0, player.getFrameSize()).forEach(i -> {
+        data.get(i).setXValue((i + position) / player.getSampleRate());
+        data.get(i).setYValue(frame[i]);
+      });
+      xAxis2.setLowerBound(position / player.getSampleRate());
+      xAxis2.setUpperBound((position + player.getFrameSize()) / player.getSampleRate());
+    }));
+    
+    recorder.addAudioFrameListener((frame, position) -> executor2.execute(() -> {
+      final double[] wframe = MathArrays.ebeMultiply(frame, window);
+      final Complex[] spectrum = Le4MusicUtils.rfft(Arrays.copyOf(wframe, fftSize));
+      final double posInSec = position / recorder.getSampleRate();
+      //final double nyquist = recorder.getSampleRate() / 2;
+      
+      double[] specAbs = new double[spectrum.length];
+      for(int i = 0; i < spectrum.length; i++){
+        specAbs[i] = spectrum[i].abs();
+      }
+      double ff = freq(recorder.getNyquist(), fftSize, (int)argmax(specAbs));
+      
+      IntStream.range(0, recorder.getFrameSize()).forEach(i -> {
+        data_mic.get(i).setXValue((i + position) / recorder.getSampleRate());
+        data_mic.get(i).setYValue(ff);
+      });
+      xAxis_mic.setLowerBound(posInSec);
+      xAxis_mic.setUpperBound(posInSec - duration);
     }));
 
     /* 録音開始 */
     Platform.runLater(player::start);
+    Platform.runLater(recorder::start);
   }
-
+  
+  // 0 〜 2048 の arrnum から対応する周波数を求める
+  public double freq(double nyquist, int fftSize, int arrnum){
+    return nyquist / fftSize * arrnum;
+  }
+  
+  public double argmax(double[] arr){
+    double max = arr[0];
+    double argmax = 0;
+      for(int i = 0; i < arr.length-1; i++){
+        if(max < arr[i+1]){
+          max = arr[i+1];
+          argmax = i + 1;
+        }
+      }
+    return argmax;
+  }
 }
