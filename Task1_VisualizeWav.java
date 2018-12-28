@@ -40,7 +40,7 @@ import java.io.IOException;
 import javax.sound.sampled.UnsupportedAudioFileException;
 import org.apache.commons.cli.ParseException;
 
-public final class PlotSpectrogramCLI extends Application {
+public final class Task1_VisualizeWav extends Application {
     
     private static final Options options = new Options();
     private static final String helpMessage = 
@@ -431,7 +431,7 @@ public final class PlotSpectrogramCLI extends Application {
         
         return chromaVec;
     }
-    
+
     // 認識したメロディ＆チャートの表示
     public LineChart<Number, Number> makeMelodyChart(CommandLine cmd,
                                                       double sampleRate,
@@ -498,7 +498,7 @@ public final class PlotSpectrogramCLI extends Application {
                     .collect(Collectors.toCollection(FXCollections::observableArrayList));
         
         // データ系列に名前をつける 
-        final XYChart.Series<Number, Number> series = new XYChart.Series<>("Chord Progression", data);
+        final XYChart.Series<Number, Number> series = new XYChart.Series<>("Melody", data);
         
         /* x軸を作成 */
         final double duration = (waveform.length - 1) / sampleRate;
@@ -507,7 +507,7 @@ public final class PlotSpectrogramCLI extends Application {
         xAxis.setAnimated(false);
         
         /* y軸を作成 */
-        final NumberAxis yAxis = new NumberAxis("Melo (0-360)", N, N + 36,
+        final NumberAxis yAxis = new NumberAxis("Mote Number", N, N + 36,
                                                 Le4MusicUtils.autoTickUnit(36));
         yAxis.setAnimated(false);
         
