@@ -234,7 +234,7 @@ public final class Task1_VisualizeWav extends Application {
                     }
                 }
                 if(ac_buf < ac[i]){
-                    ac_buf = ac[i]; fundFreq[i] = t;
+                    ac_buf = ac[i]; fundFreq[i] = sampleRate / t;
                 }
             }
         }
@@ -474,7 +474,7 @@ public final class Task1_VisualizeWav extends Application {
         }
         
         // fundFreq[i][j] : フレーム i の音階 j らしさ
-        // ノートナンバー : N 〜 N + 32 とし、 0.1 刻みで候補とする
+        // ノートナンバー : N ? N + 32 とし、 0.1 刻みで候補とする
         // ノートナンバー = N + j * 0.1
         // j = 10 * (ノートナンバー - N)
         int N = 60;     // 候補集合の最低音のノートナンバー
@@ -530,7 +530,7 @@ public final class Task1_VisualizeWav extends Application {
         return (int)Math.round(12 * Math.log(freq / 440) / Math.log(2) + 69);
     }
     
-    // 0 〜 2048 の arrnum から対応する周波数を求める
+    // 0 ? 2048 の arrnum から対応する周波数を求める
     public double freq(double nyquist, int fftSize, int arrnum){
         return nyquist / fftSize * arrnum;
     }
@@ -548,7 +548,7 @@ public final class Task1_VisualizeWav extends Application {
     }
     
     // 各音名のパワーを求める
-    // toneName は 0 〜 12 で C, C#, ... B に対応
+    // toneName は 0 ? 12 で C, C#, ... B に対応
     public double chromaPower(double[] spec, int toneName, double nyquist, int fftSize){
         double halfhalftone = Math.pow(2.0, 1.0/30.0);
         double powerSum = 0;
