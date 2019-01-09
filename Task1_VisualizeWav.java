@@ -126,7 +126,6 @@ public final class Task1_VisualizeWav extends Application {
                 Optional.ofNullable(cmd.getOptionValue("outfile")),
                 getClass().getSimpleName()
             );
-            System.out.println(name_ext[0]);
             final WritableImage image = scene.snapshot(null);
             try {
                 ImageIO.write(SwingFXUtils.fromFXImage(image, null),
