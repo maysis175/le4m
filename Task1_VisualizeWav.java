@@ -357,7 +357,7 @@ public final class Task1_VisualizeWav extends Application {
         // データ系列を作成 
         final ObservableList<XYChart.Data<Number, Number>> data =
                 IntStream.range(0, like_graph.length)
-                    .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / waveform.length / 5, like_graph[i]))
+                    .mapToObj(i -> new XYChart.Data<Number, Number>(i / sampleRate * 400, like_graph[i]))
                     .collect(Collectors.toCollection(FXCollections::observableArrayList));
         
         // データ系列に名前をつける 
@@ -468,19 +468,14 @@ public final class Task1_VisualizeWav extends Application {
         
         // 基本周波数の候補集合
         // 候補集合は3オクターブの範囲で設定
-        double[] ffCandSet = new double[360];
-        for(int i = 0; i < ffCandSet.length; i++){
-            ffCandSet[i] = 60 + i * 0.1;
-        }
-        
         // fundFreq[i][j] : フレーム i の音階 j らしさ
         // ノートナンバー : N ? N + 32 とし、 0.1 刻みで候補とする
         // ノートナンバー = N + j * 0.1
         // j = 10 * (ノートナンバー - N)
         int N = 60;     // 候補集合の最低音のノートナンバー
-        double[][] fundFreq = new double[specLog.length][ffCandSet.length];
+        double[][] fundFreq = new double[specLog.length][360];
         for(int i = 0; i < fundFreq.length; i++){
-            for(int j = 0; j < ffCandSet.length; j++){
+            for(int j = 0; j < 360; j++){
                 fundFreq[i][j] = melo_SHS(specLog[i], N + j * 0.1, nyquist, fftSize2);
             }
         }
@@ -494,7 +489,7 @@ public final class Task1_VisualizeWav extends Application {
         // データ系列を作成 
         final ObservableList<XYChart.Data<Number, Number>> data =
                 IntStream.range(0, meloLike.length)
-                    .mapToObj(i -> new XYChart.Data<Number, Number>(i * sampleRate / waveform.length / 5, meloLike[i]))
+                    .mapToObj(i -> new XYChart.Data<Number, Number>(i / sampleRate * 400, meloLike[i]))
                     .collect(Collectors.toCollection(FXCollections::observableArrayList));
         
         // データ系列に名前をつける 
@@ -507,7 +502,7 @@ public final class Task1_VisualizeWav extends Application {
         xAxis.setAnimated(false);
         
         /* y軸を作成 */
-        final NumberAxis yAxis = new NumberAxis("Mote Number", N, N + 36,
+        final NumberAxis yAxis = new NumberAxis("Note Number", N, N + 36,
                                                 Le4MusicUtils.autoTickUnit(36));
         yAxis.setAnimated(false);
         
