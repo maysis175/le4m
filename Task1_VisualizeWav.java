@@ -471,7 +471,7 @@ public final class Task1_VisualizeWav extends Application {
         // ノートナンバー : N ? N + 32 とし、 0.1 刻みで候補とする
         // ノートナンバー = N + j * 0.1
         // j = 10 * (ノートナンバー - N)
-        int N = 60;     // 候補集合の最低音のノートナンバー
+        int N = 36;     // 候補集合の最低音のノートナンバー
         double[][] fundFreq = new double[specLog.length][360];
         for(int i = 0; i < fundFreq.length; i++){
             for(int j = 0; j < 360; j++){
