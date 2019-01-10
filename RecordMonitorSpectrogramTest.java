@@ -117,6 +117,14 @@ public final class RecordMonitorSpectrogramTest extends Application {
     // ステージを追加
     Stage secondaryStage = new Stage();
     Stage micInputStage = new Stage();
+    
+    // ウィンドウ位置調整
+    primaryStage.setX(100);
+    primaryStage.setY(100);
+    secondaryStage.setX(1000);
+    secondaryStage.setY(100);
+    micInputStage.setX(100);
+    micInputStage.setY(1000);
 
     /* Player を作成 */
     final Player.Builder builder = Player.builder(wavFile);
@@ -273,7 +281,7 @@ public final class RecordMonitorSpectrogramTest extends Application {
     secondaryStage.show();
     
     ////////////////////////////////////////////////////////////////////////////
-    // マイク入力から Waveform 作成
+    // マイク入力から 基本周波数を表示するLineChart 作成
     ////////////////////////////////////////////////////////////////////////////
     
     final ExecutorService executor2 = Executors.newSingleThreadExecutor();
@@ -297,13 +305,23 @@ public final class RecordMonitorSpectrogramTest extends Application {
     
     // データ系列を作成
     final ObservableList<XYChart.Data<Number, Number>> data_mic =
-      IntStream.range(0, recorder.getFrameSize())
+      IntStream.range(0, 500)
         .mapToObj(i -> new XYChart.Data<Number, Number>(i / recorder.getSampleRate(), 0.0))
         .collect(Collectors.toCollection(FXCollections::observableArrayList));
     
     // データ系列に名前をつける
     final XYChart.Series<Number, Number> series_mic =
       new XYChart.Series<>("Waveform from mic", data_mic);
+    
+    // データ系列作成
+    /*final ObservableList<XYChart.Data<Number, Number>> data_mic =
+      IntStream.range(0, (int)Math.round(10 / interval))
+        .mapToObj(i -> new XYChart.Data<Number, Number>((int)Math.round(i * interval), 0.0))
+        .collect(Collectors.toCollection(FXCollections::observableArrayList));*/
+    
+    // データ系列に名前をつける
+    //final XYChart.Series<Number, Number> series_mic =
+    //  new XYChart.Series<>("Fundamental Freq from mic", data_mic);
     
     // 軸を作成
     final NumberAxis xAxis_mic = new NumberAxis(
@@ -312,12 +330,14 @@ public final class RecordMonitorSpectrogramTest extends Application {
       /* upperBound = */ 0.0,
       /* tickUnit   = */ Le4MusicUtils.autoTickUnit(duration)
     );
+    xAxis_mic.setAnimated(false);
     final NumberAxis yAxis_mic = new NumberAxis(
       /* axisLabel  = */ "Fundamental Frequency (Hz)",
       /* lowerBound = */ freqLowerBound,
-      /* upperBound = */ freqUpperBound,
-      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(freqUpperBound - freqLowerBound)
+      /* upperBound = */ freqUpperBound / 8,
+      /* tickUnit   = */ Le4MusicUtils.autoTickUnit(freqUpperBound / 8 - freqLowerBound)
     );
+    yAxis_mic.setAnimated(false);
 
     // チャートを作成 
     final LineChart<Number, Number> chart_mic = new LineChart<>(xAxis_mic, yAxis_mic);
@@ -337,14 +357,6 @@ public final class RecordMonitorSpectrogramTest extends Application {
     
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////////////////////////////////////////////////////
-    
-    // ウィンドウ位置調整
-    primaryStage.setX(100);
-    primaryStage.setY(100);
-    secondaryStage.setX(1000);
-    secondaryStage.setY(100);
-    micInputStage.setX(100);
-    micInputStage.setY(1000);
 
     // オンライン処理
     player.addAudioFrameListener((frame, position) -> executor.execute(() -> {
@@ -378,14 +390,29 @@ public final class RecordMonitorSpectrogramTest extends Application {
       for(int i = 0; i < spectrum.length; i++){
         specAbs[i] = spectrum[i].abs();
       }
-      double ff = freq(recorder.getNyquist(), fftSize, (int)argmax(specAbs));
+      double ff = calcFF(recorder.getNyquist(), ((fftSize >> 1) + 1), specAbs);
+      //series_mic.getData().add(new XYChart.Data<Number, Number>(posInSec, ff));
       
-      IntStream.range(0, recorder.getFrameSize()).forEach(i -> {
-        data_mic.get(i).setXValue((i + position) / recorder.getSampleRate());
+      /*IntStream.range(0, recorder.getFrameSize()).forEach(i -> {
+        data_mic.get(i).setXValue(i / recorder.getSampleRate());
         data_mic.get(i).setYValue(ff);
-      });
-      xAxis_mic.setLowerBound(posInSec);
-      xAxis_mic.setUpperBound(posInSec - duration);
+        //series_mic.getData().add(new XYChart.Data<Number, Number>(i / recorder.getSampleRate(), ff));
+      });*/
+      
+      if(position / 320 < 500){
+        data_mic.get((int)Math.round(position / 320)).setXValue(posInSec);
+        data_mic.get((int)Math.round(position / 320)).setYValue(ff);
+      }else{
+        for(int i = 0; i < 500 - 1; i++){
+          data_mic.get(i).setXValue(data_mic.get(i+1).getXValue());
+          data_mic.get(i).setYValue(data_mic.get(i+1).getYValue());
+        }
+        data_mic.get(499).setXValue(posInSec);
+        data_mic.get(499).setYValue(ff);
+      }
+      
+      xAxis_mic.setUpperBound(posInSec);
+      xAxis_mic.setLowerBound(posInSec - duration);
     }));
 
     /* 録音開始 */
@@ -396,6 +423,17 @@ public final class RecordMonitorSpectrogramTest extends Application {
   // 0 〜 2048 の arrnum から対応する周波数を求める
   public double freq(double nyquist, int fftSize, int arrnum){
     return nyquist / fftSize * arrnum;
+  }
+  
+  // 基本周波数を求める
+  public double calcFF(double nyquist, int fftSize, double specAbs[]){
+    final double threshold = 0.005;   // 振幅が threshold 以下の音ははじく
+    double fundFreq;
+    
+    if(specAbs[(int)argmax(specAbs)] < threshold)
+      return 0;
+    else    
+      return freq(nyquist, fftSize, (int)argmax(specAbs));
   }
   
   public double argmax(double[] arr){
