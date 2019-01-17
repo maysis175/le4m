@@ -386,10 +386,10 @@ public final class Task2_KaraokeSystem extends Application {
 
     Text notes = new Text("   Note Name:    ");
     notes.setFont(Font.font(null, 40));
-    root.getChildren().addAll(notes, chart_micSgram);
+    root.getChildren().addAll(chart_micSgram, notes);
     
     // グラフ描画
-    final Scene scene_micS = new Scene(root, 800, 500);    
+    final Scene scene_micS = new Scene(root, 800, 520);    
     scene_micS.getStylesheets().add("le4music.css");
     micSgramStage.setScene(scene_micS);
     micSgramStage.setTitle(getClass().getName());
@@ -559,11 +559,6 @@ public final class Task2_KaraokeSystem extends Application {
   // ノートナンバーから周波数への変換
   public double n_to_f(double noteNum){
     return (440 * Math.pow(2, ((noteNum-69)/12)));
-  }
-  
-  // 周波数からノートナンバーへの変換
-  public double f_to_n(double freq){
-    return (12.0 * Math.log(freq / 440.0) / Math.log(2) + 69.0);
   }
   
   public double argmax(double[] arr){
