@@ -272,7 +272,7 @@ public final class Task2_KaraokeSystem extends Application {
 
     /* チャートを作成 */
     final LineChart<Number, Number> chart = new LineChart<>(xAxis2, yAxis2);
-    chart.setTitle("Waveform");
+    chart.setTitle("Waveform from mic");
     chart.setCreateSymbols(false);
     chart.setLegendVisible(false);
     chart.setAnimated(false);
@@ -366,7 +366,7 @@ public final class Task2_KaraokeSystem extends Application {
     );
     xAxis_micS.setAnimated(false);
     final NumberAxis yAxis_micS = new NumberAxis(
-      /* axisLabel  = */ "Pitch from mic",
+      /* axisLabel  = */ "Pitch (0-120)",
       /* lowerBound = */ 0,
       /* upperBound = */ 360,
       /* tickUnit   = */ 10
