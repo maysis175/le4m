@@ -384,7 +384,7 @@ public final class Task2_KaraokeSystem extends Application {
     // 音高表示部
     VBox root = new VBox(15);
 
-    Text notes = new Text("   Note Name: ");
+    Text notes = new Text("   Note Name:    ");
     notes.setFont(Font.font(null, 40));
     root.getChildren().addAll(notes, chart_micSgram);
     
