@@ -41,7 +41,7 @@ import javax.sound.sampled.UnsupportedAudioFileException;
 import javax.sound.sampled.LineUnavailableException;
 import org.apache.commons.cli.ParseException;
 
-public final class RecordMonitorSpectrogramTest extends Application {
+public final class Task2_KaraokeSystem extends Application {
 
   private static final Options options = new Options();
   private static final String helpMessage =
@@ -419,6 +419,7 @@ public final class RecordMonitorSpectrogramTest extends Application {
       final Complex[] spectrum = Le4MusicUtils.rfft(Arrays.copyOf(wframe, fftSize));
       final double posInSec = position / recorder.getSampleRate();
       
+      // 複素スペクトログラムを振幅スペクトログラムに変換
       double[] specAbs = new double[spectrum.length];
       for(int i = 0; i < spectrum.length; i++){
         specAbs[i] = spectrum[i].abs();
