@@ -353,10 +353,6 @@ public final class Task2_KaraokeSystem extends Application {
     // マイク入力から 入力された音階を出力するスペクトログラム(?) 作成
     ////////////////////////////////////////////////////////////////////////////
     
-    // ノートナンバーの下限、上限
-    final double nnLowerBound = 36.0;
-    final double nnUpperBound = nnLowerBound + 36.0;
-    
     // 軸を作成
     final NumberAxis xAxis_micS = new NumberAxis(
       /* axisLabel  = */ "Time (seconds)",
@@ -471,7 +467,6 @@ public final class Task2_KaraokeSystem extends Application {
   
   // 基本周波数を求める
   public double calcFF(double[] frame, double sampleRate){
-    double fundFreq;
     double[] autocor = new double[frame.length-11];
     Arrays.fill(autocor, 0);
     
@@ -522,7 +517,7 @@ public final class Task2_KaraokeSystem extends Application {
       };
     }
     
-    if(Math.abs(powerSum) < 0.005){
+    if(Math.abs(powerSum) < 0.02){
       powerSum = 0;
     }
         
@@ -536,7 +531,7 @@ public final class Task2_KaraokeSystem extends Application {
     
     int argmax = (int)argmax(nn_mic);
     if(Math.abs(nn_mic[argmax]) < 0.02)
-      return "  ";
+      return "   ";
     else{
       String pitchClass = "";
       int octave = 0;
