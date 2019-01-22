@@ -32,7 +32,6 @@ import jp.ac.kyoto_u.kuis.le4music.Le4MusicUtils;
 import jp.ac.kyoto_u.kuis.le4music.Player;
 import jp.ac.kyoto_u.kuis.le4music.Recorder;
 import jp.ac.kyoto_u.kuis.le4music.LineChartWithSpectrogram;
-import jp.ac.kyoto_u.kuis.le4music.LineChartWithMarkers;
 import static jp.ac.kyoto_u.kuis.le4music.Le4MusicUtils.verbose;
 
 import java.io.IOException;
@@ -498,7 +497,7 @@ public final class Task2_KaraokeSystem extends Application {
     }
     
     if(Math.abs(fundFreq[(int)argmax(fundFreq)]) >= 0.005)
-     nn_mic[(int)argmax(fundFreq)] = 0.02;
+      nn_mic[(int)argmax(fundFreq)] = 0.02;
     return nn_mic;
   }
   
